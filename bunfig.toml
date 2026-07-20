@@ -1,0 +1,4 @@
+# bun test가 packaging/build/dmg-stage/Applications 심링크(→ /Applications)를 따라
+# 외부 앱의 테스트까지 실행하는 것을 방지 — 스캔 범위를 tests/로 한정
+[test]
+root = "tests"
