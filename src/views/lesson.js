@@ -10,10 +10,11 @@ import {
   recordMiss, recordHit, markLegendary, applyPlacement, levelOf,
 } from '../state.js';
 import { sfx, speak, stopSpeak, ttsAvailable, srSupported } from '../audio.js';
-import { render, renderTopbar, toast } from '../app.js';
+import { render, renderTopbar, toast, trapFocus } from '../app.js';
 
 const overlay = () => document.getElementById('overlay');
 let S = null; // 세션 상태
+let releaseTrap = null; // 오버레이 포커스 트랩 해제 함수
 
 // ── 시작점 3종 ──
 export function startLesson(unitIndex, lessonIndex) {
@@ -77,15 +78,33 @@ function beginSession(exercises, cfg) {
     sectionScore: {}, // placement용: {si: correctCount}
     speakTries: 0,
   };
-  overlay().classList.add('open');
+  const ov = overlay();
+  ov.classList.add('open');
+  ov.setAttribute('role', 'dialog');
+  ov.setAttribute('aria-modal', 'true');
+  ov.setAttribute('aria-label', cfg.mode === 'placement' ? '배치고사' : cfg.mode === 'weak' ? '복습' : '레슨');
   renderExercise();
+  releaseTrap = trapFocus(ov, {
+    onEscape: () => {
+      if (document.querySelector('.modal-back')) return; // 모달이 자체 Escape 처리
+      const done = document.getElementById('doneBtn');
+      if (done) return done.click(); // 결과 화면에서는 닫기
+      if (S) confirmQuit();
+    },
+  });
 }
 
 function closeLesson() {
   stopSR();
   stopSpeak();
-  overlay().classList.remove('open');
-  overlay().innerHTML = '';
+  releaseTrap?.();
+  releaseTrap = null;
+  const ov = overlay();
+  ov.classList.remove('open');
+  ov.innerHTML = '';
+  ov.removeAttribute('role');
+  ov.removeAttribute('aria-modal');
+  ov.removeAttribute('aria-label');
   document.onkeydown = null;
   S = null;
   render();
@@ -141,6 +160,9 @@ function renderExercise() {
     ${footerHtml()}`;
   wireCommon();
   wireExercise();
+  // 키보드 접근성: 새 문제의 첫 컨트롤로 포커스 (타이핑류는 wireExercise가 입력창에 이미 줌)
+  const exEl = document.getElementById('exbody');
+  if (!exEl.contains(document.activeElement)) exEl.querySelector('button, textarea, input')?.focus();
   if (ex.type === 'listen') setTimeout(() => speak(ex.sentence), 350);
   if (ex.type === 'dialogue') setTimeout(() => speak(ex.say), 300);
 }
@@ -560,7 +582,9 @@ function showResult(ok, { typo = false, expected = '', skipped = false, matchDon
   head.outerHTML = headerHtml();
   document.getElementById('quit').onclick = confirmQuit;
 
-  document.getElementById('contBtn').onclick = () => {
+  const cont = document.getElementById('contBtn');
+  cont.focus();
+  cont.onclick = () => {
     if (!ok && S.hearts && profile.hearts <= 0) return outOfHearts();
     S.idx += 1;
     if (S.idx >= S.queue.length) finishSession();
@@ -689,7 +713,9 @@ function finishSession() {
     if (n >= gained) clearInterval(int);
   }, 70);
 
-  document.getElementById('doneBtn').onclick = () => { clearInterval(int); closeLesson(); };
+  const doneBtn = document.getElementById('doneBtn');
+  doneBtn.focus();
+  doneBtn.onclick = () => { clearInterval(int); closeLesson(); };
   document.onkeydown = (e) => {
     if (e.key === 'Enter') document.getElementById('doneBtn')?.click();
   };
@@ -745,16 +771,21 @@ function showModal({ body, buttons }) {
   const back = document.createElement('div');
   back.className = 'modal-back';
   back.innerHTML = `
-    <div class="modal">
+    <div class="modal" role="dialog" aria-modal="true">
       ${body}
       ${buttons.map((b, i) => `<button class="btn ${b.cls || ''}" data-mb="${i}">${b.label}</button>`).join('')}
     </div>`;
   document.body.appendChild(back);
+  const release = trapFocus(back, { onEscape: close });
+  function close() {
+    release();
+    back.remove();
+  }
   back.querySelectorAll('[data-mb]').forEach((btn) => {
     btn.onclick = () => {
       const b = buttons[+btn.dataset.mb];
       const keepClosed = b.fn ? b.fn() !== false : true;
-      if (keepClosed) back.remove();
+      if (keepClosed) close();
     };
   });
 }

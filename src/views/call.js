@@ -7,10 +7,11 @@ import { sfx, speak, stopSpeak, ttsAvailable, srSupported, voiceList, setVoice }
 import { createLlmEngine } from '../llm-engine.js';
 import { shuffle } from '../session.js';
 import { profile, addXp, save } from '../state.js';
-import { render, renderTopbar } from '../app.js';
+import { render, renderTopbar, trapFocus } from '../app.js';
 
 const overlay = () => document.getElementById('overlay');
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
+let releaseTrap = null; // 통화 오버레이 포커스 트랩 해제 함수
 
 // ── 스크립트 대화 엔진 ──
 // 계약: first() → exchange, answer(text) → { verdict: 'match'|'recast'|'moveon', reaction, model?, next }
@@ -190,8 +191,12 @@ function startCall(scenarioId) {
     log: { exchanges: 0, xp: 0, words: 0, recasts: [], phrases: [] },
   };
 
-  overlay().classList.add('open', 'call');
-  overlay().innerHTML = `
+  const ov = overlay();
+  ov.classList.add('open', 'call');
+  ov.setAttribute('role', 'dialog');
+  ov.setAttribute('aria-modal', 'true');
+  ov.setAttribute('aria-label', '영상 통화');
+  ov.innerHTML = `
     <div class="call-screen">
       <div class="call-top">
         <span class="call-title">${scenario.title} · ${TUTOR.name}</span>
@@ -231,6 +236,9 @@ function startCall(scenarioId) {
       })
       .catch(() => {});
   }
+
+  releaseTrap?.(); // 재통화 시 이전 트랩 정리
+  releaseTrap = trapFocus(ov, { onEscape: () => (C ? endCall() : closeCall()) });
 
   document.getElementById('endBtn').onclick = endCall;
   document.getElementById('koBtn').onclick = () => {
@@ -450,10 +458,20 @@ function endCall() {
 
   const scenarioId = C.scenario.id;
   C = null;
-  document.getElementById('againBtn').onclick = () => startCall(scenarioId);
-  document.getElementById('closeBtn').onclick = () => {
-    overlay().classList.remove('open', 'call');
-    overlay().innerHTML = '';
-    render();
-  };
+  const againBtn = document.getElementById('againBtn');
+  againBtn.focus();
+  againBtn.onclick = () => startCall(scenarioId);
+  document.getElementById('closeBtn').onclick = closeCall;
+}
+
+function closeCall() {
+  releaseTrap?.();
+  releaseTrap = null;
+  const ov = overlay();
+  ov.classList.remove('open', 'call');
+  ov.innerHTML = '';
+  ov.removeAttribute('role');
+  ov.removeAttribute('aria-modal');
+  ov.removeAttribute('aria-label');
+  render();
 }

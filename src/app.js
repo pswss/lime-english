@@ -63,6 +63,39 @@ export function renderTopbar() {
   };
 }
 
+// 다이얼로그 포커스 관리 (레슨/통화 오버레이 + 모달 공용):
+// 첫 컨트롤로 포커스 이동(이미 안에 있으면 유지), Tab 순환 트랩, Escape 콜백,
+// 해제 시 이전 포커스 복원. 반환값 = 해제 함수.
+export function trapFocus(el, { onEscape } = {}) {
+  const prev = document.activeElement;
+  const focusables = () =>
+    [...el.querySelectorAll('button, [href], input, select, textarea')].filter((n) => !n.disabled);
+  if (!el.contains(document.activeElement)) focusables()[0]?.focus();
+  const onKey = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      onEscape?.();
+      return;
+    }
+    if (e.key !== 'Tab') return;
+    const f = focusables();
+    if (!f.length) return;
+    const i = f.indexOf(document.activeElement);
+    if (e.shiftKey && i <= 0) {
+      e.preventDefault();
+      f[f.length - 1].focus();
+    } else if (!e.shiftKey && (i === -1 || i === f.length - 1)) {
+      e.preventDefault();
+      f[0].focus();
+    }
+  };
+  el.addEventListener('keydown', onKey);
+  return () => {
+    el.removeEventListener('keydown', onKey);
+    prev?.focus?.();
+  };
+}
+
 export function toast(msg) {
   const el = $('#toast');
   el.textContent = msg;
