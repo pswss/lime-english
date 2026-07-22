@@ -2,6 +2,7 @@
 import { LEAGUE_NAME } from '../data.js';
 import { icons } from '../icons.js';
 import { leagueStandings } from '../state.js';
+import { escapeHtml as esc } from '../checker.js';
 
 export function renderLeaderboard(el) {
   const standings = leagueStandings();
@@ -17,8 +18,8 @@ export function renderLeaderboard(el) {
         ${zone}
         <div class="lb-row ${s.bot ? '' : 'me'}">
           <span class="rank ${demote ? 'demote' : ''}">${rank}</span>
-          <span class="avatar">${s.avatar || icons.face()}</span>
-          <span class="name">${s.name}${s.bot ? '' : ' (나)'}</span>
+          <span class="avatar">${s.avatar ? esc(s.avatar) : icons.face()}</span>
+          <span class="name">${esc(s.name)}${s.bot ? '' : ' (나)'}</span>
           <span class="xp">${s.xp} XP</span>
         </div>`;
     })

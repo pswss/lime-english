@@ -1,7 +1,7 @@
 // 순수 로직 단위 테스트: js/checker.js, js/session.js
 // 실행: cd /tmp/duolingo && bun test
 import { describe, test, expect } from 'bun:test';
-import { normalize, levenshtein, checkAnswer, tokenize, joinTokens } from '../src/checker.js';
+import { normalize, levenshtein, checkAnswer, tokenize, joinTokens, escapeHtml } from '../src/checker.js';
 import { generateSession, mulberry32, seedFrom, shuffle } from '../src/session.js';
 import { COURSE } from '../src/data.js';
 
@@ -152,6 +152,21 @@ describe('checkAnswer', () => {
 
   test('어순이 바뀐 문장은 오답', () => {
     expect(checkAnswer(WATER, 'water I drink').correct).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// escapeHtml
+// ---------------------------------------------------------------------------
+describe('escapeHtml', () => {
+  test('&, <, >, ", \' 다섯 문자를 모두 이스케이프', () => {
+    expect(escapeHtml(`<img src=x onerror="a&b('c')">`)).toBe(
+      '&lt;img src=x onerror=&quot;a&amp;b(&#39;c&#39;)&quot;&gt;'
+    );
+  });
+  test('일반 텍스트·비문자열 입력은 안전하게 통과', () => {
+    expect(escapeHtml('Hello, world!')).toBe('Hello, world!');
+    expect(escapeHtml(123)).toBe('123');
   });
 });
 

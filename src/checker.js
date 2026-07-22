@@ -50,6 +50,13 @@ export function checkAnswer(expectedList, given) {
   return { correct: false, typo: false, expected: expectedList[0] };
 }
 
+// HTML 이스케이프 — 사용자 입력·LLM 응답을 innerHTML에 보간할 때는 반드시 통과시킬 것
+export function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
 // 단어은행 토큰 배열을 문장으로 결합
 export function joinTokens(tokens) {
   return tokens.join(' ');

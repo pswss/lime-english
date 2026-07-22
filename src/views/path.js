@@ -6,6 +6,7 @@ import {
   weakList, weakDueCount, dismissPlacement,
 } from '../state.js';
 import { startLesson, startWeakReview, startPlacement } from './lesson.js';
+import { escapeHtml as esc } from '../checker.js';
 import { renderTopbar, render } from '../app.js';
 import { sfx } from '../audio.js';
 
@@ -197,8 +198,8 @@ export function renderRail(el, routeId) {
           (s, i) => `
         <div class="lb-row ${s.bot ? '' : 'me'}">
           <span class="rank">${i + 1}</span>
-          <span class="avatar">${s.avatar || icons.face()}</span>
-          <span class="name">${s.name}</span>
+          <span class="avatar">${s.avatar ? esc(s.avatar) : icons.face()}</span>
+          <span class="name">${esc(s.name)}</span>
           <span class="xp">${s.xp} XP</span>
         </div>`
         )

@@ -2,6 +2,7 @@
 import { LEAGUE_NAME, COURSE } from '../data.js';
 import { icons } from '../icons.js';
 import { profile, resetProfile, levelOf, importProfile, todayStr } from '../state.js';
+import { escapeHtml as esc } from '../checker.js';
 import { render, toast } from '../app.js';
 
 function achievements() {
@@ -23,10 +24,10 @@ export function renderProfile(el) {
   const ach = achievements();
   el.innerHTML = `
     <div class="profile-head">
-      <div class="profile-avatar">${profile.avatar || icons.face()}</div>
+      <div class="profile-avatar">${profile.avatar ? esc(profile.avatar) : icons.face()}</div>
       <div>
         <div class="page-eyebrow" style="margin-top:0;border:none;padding:0">Learner Profile</div>
-        <h1 class="page-title" style="margin:6px 0 8px">${profile.name}</h1>
+        <h1 class="page-title" style="margin:6px 0 8px">${esc(profile.name)}</h1>
         <p style="color:var(--text-sub);font-weight:500">영어 배우는 중 🇺🇸 · 레벨 ${levelOf(profile.xp)}</p>
       </div>
     </div>

@@ -5,6 +5,7 @@ import { TUTOR, TOPICS, SCENARIOS, REACTIONS, MISS_LINES, MOVE_ON } from '../con
 import { icons } from '../icons.js';
 import { sfx, speak, stopSpeak, ttsAvailable, srSupported, voiceList, setVoice } from '../audio.js';
 import { createLlmEngine } from '../llm-engine.js';
+import { escapeHtml as esc } from '../checker.js';
 import { shuffle } from '../session.js';
 import { profile, addXp, save } from '../state.js';
 import { render, renderTopbar, trapFocus } from '../app.js';
@@ -277,10 +278,11 @@ function updateTimer() {
 function renderCaption(userLine = null) {
   const cap = document.getElementById('callCap');
   if (!cap || !C?.ex) return;
+  // LLM 응답(say/ko)·사용자 발화는 신뢰 불가 텍스트 — 반드시 이스케이프
   cap.innerHTML = `
-    <div class="cap-tutor"><b>${TUTOR.name}</b> ${C.ex.say}</div>
-    ${C.showKo && C.ex.ko ? `<div class="cap-ko">${C.ex.ko}</div>` : ''}
-    ${userLine ? `<div class="cap-user"><b>나</b> ${userLine}</div>` : ''}`;
+    <div class="cap-tutor"><b>${TUTOR.name}</b> ${esc(C.ex.say)}</div>
+    ${C.showKo && C.ex.ko ? `<div class="cap-ko">${esc(C.ex.ko)}</div>` : ''}
+    ${userLine ? `<div class="cap-user"><b>나</b> ${esc(userLine)}</div>` : ''}`;
 }
 
 function tutorTurn(ex, preline = null) {
@@ -315,7 +317,7 @@ function awaitAnswer() {
     </div>
     <div class="call-chips">
       ${canSR ? `<button class="chip" id="speechRetry">${icons.mic()} 다시 말하기</button>` : ''}
-      ${C.ex.replies.map((r, i) => `<button class="chip" data-reply="${i}">${r}</button>`).join('')}
+      ${C.ex.replies.map((r, i) => `<button class="chip" data-reply="${i}">${esc(r)}</button>`).join('')}
     </div>
     <form class="call-input" id="callForm">
       <input type="text" id="callText" placeholder="직접 영어로 입력…" autocomplete="off" />
@@ -441,14 +443,14 @@ function endCall() {
         <div class="fb-list">
           ${recasts.slice(0, 5).map((r) => `
             <div class="fb-row">
-              <div class="fb-mine">"${r.mine}"</div>
-              <div class="fb-model">→ ${r.model}</div>
+              <div class="fb-mine">"${esc(r.mine)}"</div>
+              <div class="fb-model">→ ${esc(r.model)}</div>
             </div>`).join('')}
         </div>` : ''}
       ${newPhrases.length ? `
         <h4 class="fb-title">오늘 나온 표현</h4>
         <div class="fb-list">
-          ${newPhrases.map((p) => `<div class="fb-row"><div class="fb-model">${p}</div></div>`).join('')}
+          ${newPhrases.map((p) => `<div class="fb-row"><div class="fb-model">${esc(p)}</div></div>`).join('')}
         </div>` : ''}
       <div class="fb-actions">
         <button class="btn big" id="againBtn">다시 통화하기</button>

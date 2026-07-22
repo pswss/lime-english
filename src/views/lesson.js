@@ -4,7 +4,7 @@ import { COURSE, SECTIONS, SECTION_STARTS, sectionOfUnit, SHOP_ITEMS } from '../
 import { icons } from '../icons.js';
 import { generateSession, generateWeakSession, generatePlacementSession, shuffle } from '../session.js';
 import { DIALOGUE_PROMPTS } from '../dialogue.js';
-import { checkAnswer, joinTokens, normalize } from '../checker.js';
+import { checkAnswer, joinTokens, normalize, escapeHtml } from '../checker.js';
 import {
   profile, loseHeart, recordLessonComplete, advanceProgress, nodeState, buyItem,
   recordMiss, recordHit, markLegendary, applyPlacement, levelOf,
@@ -278,9 +278,7 @@ function bodyDialogue(ex) {
     ${srSupported() ? `<div class="speak-zone"><button class="mic-big small" id="micBig">${icons.mic()}</button><div class="speak-status" id="speakStatus">또는 마이크로 말하기</div></div>` : ''}`;
 }
 
-function escapeAttr(s) {
-  return s.replace(/"/g, '&quot;');
-}
+const escapeAttr = escapeHtml; // 따옴표만 처리하던 구현을 완전 이스케이프로 교체
 
 // ── 음성 인식 (speak/dialogue) ──
 let activeSR = null;
