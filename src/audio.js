@@ -186,6 +186,30 @@ export function srSupported() {
   return typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
 }
 
+// 음성 인식 1회 (en-US, interim 포함) — 레슨(listenOnce)·통화(startSR) 공용 래퍼.
+// 시작까지 성공하면 recognition 객체, 실패(미지원/start 예외)면 null 반환.
+// onInterim은 비어 있지 않은 중간 텍스트에만 호출된다.
+export function createRecognizer({ onResult, onInterim, onError, onEnd }) {
+  if (!srSupported()) return null;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const r = new SR();
+  r.lang = 'en-US';
+  r.interimResults = true;
+  r.continuous = false;
+  r.onresult = (e) => {
+    let interim = '';
+    for (const res of e.results) {
+      if (res.isFinal) return onResult(res[0].transcript.trim());
+      interim += res[0].transcript;
+    }
+    if (interim) onInterim?.(interim);
+  };
+  r.onerror = () => onError?.();
+  r.onend = () => onEnd?.();
+  try { r.start(); } catch { return null; }
+  return r;
+}
+
 // 자연스러움 점수 (높을수록 좋음) + Emma 페르소나(여성 음성) 가중
 function voiceScore(v) {
   const n = v.name.toLowerCase();

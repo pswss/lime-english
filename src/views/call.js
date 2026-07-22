@@ -3,7 +3,7 @@
 // 를 정의하면 스크립트 엔진 대신 LLM 기반 엔진이 사용된다. 반환 계약은 아래 createScriptedEngine 참조.
 import { TUTOR, TOPICS, SCENARIOS, REACTIONS, MISS_LINES, MOVE_ON } from '../convo.js';
 import { icons } from '../icons.js';
-import { sfx, speak, stopSpeak, ttsAvailable, srSupported, voiceList, setVoice } from '../audio.js';
+import { sfx, speak, stopSpeak, ttsAvailable, srSupported, voiceList, setVoice, createRecognizer } from '../audio.js';
 import { createLlmEngine } from '../llm-engine.js';
 import { escapeHtml as esc } from '../checker.js';
 import { shuffle } from '../session.js';
@@ -340,38 +340,30 @@ function awaitAnswer() {
 }
 
 function startSR() {
-  if (!srSupported() || !C) return;
+  if (!C) return;
   stopSR();
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const r = new SR();
-  C.sr = r;
-  r.lang = 'en-US';
-  r.interimResults = true;
-  r.continuous = false;
-  r.onresult = (e) => {
-    let interim = '';
-    for (const res of e.results) {
-      if (res.isFinal) return onUser(res[0].transcript.trim());
-      interim += res[0].transcript;
-    }
-    const st = document.getElementById('ansStatus');
-    if (st && interim) st.innerHTML = `${icons.mic()} "${interim}"`;
-  };
   let failed = false;
-  r.onerror = () => {
-    failed = true;
-    const st = document.getElementById('ansStatus');
-    if (st) st.textContent = '마이크를 듣지 못했어요 — 다시 말하기를 눌러 주세요';
-  };
-  r.onend = () => {
-    if (C?.sr === r) C.sr = null;
-    // 무음으로 끝나면 대기 상태 유지 (칩/입력은 계속 사용 가능)
-    if (!failed && C?.awaiting && !C.micMuted) {
+  const r = createRecognizer({
+    onResult: (t) => onUser(t),
+    onInterim: (interim) => {
       const st = document.getElementById('ansStatus');
-      if (st) st.textContent = '못 들었어요 — 다시 말하기를 누르거나 아래 답을 탭하세요';
-    }
-  };
-  try { r.start(); } catch {}
+      if (st) st.innerHTML = `${icons.mic()} "${esc(interim)}"`;
+    },
+    onError: () => {
+      failed = true;
+      const st = document.getElementById('ansStatus');
+      if (st) st.textContent = '마이크를 듣지 못했어요 — 다시 말하기를 눌러 주세요';
+    },
+    onEnd: () => {
+      if (C?.sr === r) C.sr = null;
+      // 무음으로 끝나면 대기 상태 유지 (칩/입력은 계속 사용 가능)
+      if (!failed && C?.awaiting && !C.micMuted) {
+        const st = document.getElementById('ansStatus');
+        if (st) st.textContent = '못 들었어요 — 다시 말하기를 누르거나 아래 답을 탭하세요';
+      }
+    },
+  });
+  C.sr = r;
 }
 
 function stopSR() {

@@ -9,7 +9,7 @@ import {
   profile, loseHeart, recordLessonComplete, advanceProgress, nodeState, buyItem,
   recordMiss, recordHit, markLegendary, applyPlacement, levelOf,
 } from '../state.js';
-import { sfx, speak, stopSpeak, ttsAvailable, srSupported } from '../audio.js';
+import { sfx, speak, stopSpeak, ttsAvailable, srSupported, createRecognizer } from '../audio.js';
 import { render, renderTopbar, toast, trapFocus } from '../app.js';
 
 const overlay = () => document.getElementById('overlay');
@@ -290,25 +290,14 @@ function stopSR() {
 }
 
 function listenOnce(onFinal, onInterim) {
-  if (!srSupported()) return false;
   stopSR();
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const r = new SR();
-  activeSR = r;
-  r.lang = 'en-US';
-  r.interimResults = true;
-  r.onresult = (e) => {
-    let interim = '';
-    for (const res of e.results) {
-      if (res.isFinal) return onFinal(res[0].transcript.trim());
-      interim += res[0].transcript;
-    }
-    if (interim) onInterim(interim);
-  };
-  r.onerror = () => onFinal('');
-  r.onend = () => onFinal('');
-  try { r.start(); } catch { return false; }
-  return true;
+  activeSR = createRecognizer({
+    onResult: onFinal,
+    onInterim,
+    onError: () => onFinal(''),
+    onEnd: () => onFinal(''),
+  });
+  return !!activeSR;
 }
 
 // ── 문제 유형별 상호작용 ──
