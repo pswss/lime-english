@@ -3,7 +3,7 @@ import { COURSE, SECTIONS, SECTION_STARTS, LEAGUE_NAME } from '../data.js';
 import { icons } from '../icons.js';
 import {
   profile, nodeState, questStates, claimQuest, leagueStandings, courseCompleted,
-  weakList, dismissPlacement,
+  weakList, weakDueCount, dismissPlacement,
 } from '../state.js';
 import { startLesson, startWeakReview, startPlacement } from './lesson.js';
 import { renderTopbar, render } from '../app.js';
@@ -179,13 +179,16 @@ export function renderRail(el, routeId) {
   const top3 = standings.slice(0, 3);
   const quests = questStates();
   const weak = weakList();
+  const due = weakDueCount();
 
   el.innerHTML = `
     ${weak.length ? `
     <div class="card weak-card">
-      <h3>약점 복습 <span class="weak-count">${weak.length}</span></h3>
-      <p class="weak-desc">자주 틀린 문장을 모아 다시 연습해요. 간격 반복이 기억을 만들어요.</p>
-      <button class="q-claim" id="weakBtn">복습 시작 +8 XP</button>
+      <h3>복습 <span class="weak-count">${due}</span></h3>
+      <p class="weak-desc">${due
+        ? `지금 복습할 문장이 ${due}개 있어요. 간격 반복이 기억을 만들어요.`
+        : `당장 복습할 문장은 없어요. 미리 복습할 수도 있어요. (대기 ${weak.length})`}</p>
+      <button class="q-claim" id="weakBtn">${due ? '복습 시작' : '미리 복습'} +8 XP</button>
     </div>` : ''}
     <div class="card">
       <h3>${LEAGUE_NAME} <a href="#/leaderboard">전체 보기</a></h3>

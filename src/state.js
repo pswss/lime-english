@@ -105,6 +105,12 @@ function applyTime(p) {
   } else {
     p.heartsUpdatedAt = Date.now();
   }
+  // 구버전 weakPairs(숫자 miss 카운트) → SRS 엔트리 마이그레이션
+  for (const k of Object.keys(p.weakPairs)) {
+    if (typeof p.weakPairs[k] === 'number') {
+      p.weakPairs[k] = { misses: p.weakPairs[k], due: Date.now(), interval: 0, wins: 0 };
+    }
+  }
   // 일일 퀘스트 리셋
   if (p.quests.day !== todayStr()) p.quests = freshQuests();
   // 주간 리그 리셋
@@ -183,25 +189,61 @@ export function levelOf(xp) {
   return Math.floor(xp / 100) + 1;
 }
 
-// ── 약점 추적 (간격 반복의 수집 단계) ──
-// 키: 문장 en 원문, 값: 틀린 횟수. 복습에서 맞히면 감소.
+// ── 간격 반복 (SM-2 lite) ──
+// weakPairs[en] = { misses, due, interval, wins }
+//   interval: 일 단위 복습 간격. 틀리면 0(즉시), 맞히면 1→3→7→21로 성장.
+//   wins: interval>=7 상태에서의 연속 성공 횟수 — 2회면 졸업(삭제).
+// 완료 유닛의 문장은 advanceProgress에서 due=내일로 자동 유입된다.
+const SRS_STEPS = [1, 3, 7, 21];
+const DAY_MS = 86400000;
+
 export function recordMiss(pairEn) {
   if (!pairEn) return;
-  profile.weakPairs[pairEn] = (profile.weakPairs[pairEn] || 0) + 1;
+  const e = profile.weakPairs[pairEn] || { misses: 0, due: 0, interval: 0, wins: 0 };
+  e.misses += 1;
+  e.interval = 0;
+  e.due = Date.now();
+  e.wins = 0;
+  profile.weakPairs[pairEn] = e;
   save();
 }
 
 export function recordHit(pairEn) {
-  if (!pairEn || !profile.weakPairs[pairEn]) return;
-  profile.weakPairs[pairEn] -= 1;
-  if (profile.weakPairs[pairEn] <= 0) delete profile.weakPairs[pairEn];
+  const e = profile.weakPairs[pairEn];
+  if (!pairEn || !e) return;
+  if (e.interval >= 7) {
+    e.wins = (e.wins || 0) + 1;
+    if (e.wins >= 2) {
+      delete profile.weakPairs[pairEn]; // 졸업
+      save();
+      return;
+    }
+  }
+  e.interval = SRS_STEPS.find((d) => d > e.interval) ?? SRS_STEPS.at(-1);
+  e.due = Date.now() + e.interval * DAY_MS;
   save();
 }
 
+// due 지난 것 먼저, 그다음 가까운 순 (동순위는 많이 틀린 순)
 export function weakList() {
   return Object.entries(profile.weakPairs)
-    .sort((a, b) => b[1] - a[1])
+    .sort((a, b) => a[1].due - b[1].due || b[1].misses - a[1].misses)
     .map(([en]) => en);
+}
+
+export function weakDueCount() {
+  const now = Date.now();
+  return Object.values(profile.weakPairs).filter((e) => e.due <= now).length;
+}
+
+// 완료한 유닛의 문장을 복습 큐에 등록 (이미 추적 중인 문장은 유지)
+function seedUnitReview(unit) {
+  const due = Date.now() + DAY_MS;
+  for (const p of unit.pairs) {
+    if (!profile.weakPairs[p.en]) {
+      profile.weakPairs[p.en] = { misses: 0, due, interval: 1, wins: 0 };
+    }
+  }
 }
 
 // ── 레전더리 (유닛 마스터 티어) ──
@@ -281,6 +323,7 @@ export function advanceProgress(unitIndex, lessonIndex) {
     const u = COURSE.units[unitIndex];
     const total = u.lessonCount + 1; // 마지막은 복습(트로피)
     if (lesson + 1 >= total) {
+      seedUnitReview(u); // 유닛 완료 → 문장들을 복습 큐로 (장기 리텐션 루프)
       if (unit + 1 < COURSE.units.length) {
         profile.progress = { unit: unit + 1, lesson: 0 };
       } else {

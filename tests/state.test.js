@@ -25,6 +25,7 @@ const CORRUPT_RAW = '{"xp": 120, "gems": <<corrupt>>';
 store.set(KEY, CORRUPT_RAW);
 
 const state = await import('../src/state.js');
+const { COURSE } = await import('../src/data.js');
 const { profile } = state; // live binding 아님(구조 분해) — 항상 state.profile 사용
 const MIN = 60000;
 const HOUR = 3600000;
@@ -242,6 +243,89 @@ describe('일일 퀘스트', () => {
     expect(state.claimQuest('xp30')).toBe(true);
     expect(state.profile.gems).toBe(gems + 50);
     expect(state.claimQuest('xp30')).toBe(false); // 중복 수령 금지
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 간격 반복 (SM-2 lite): miss→즉시, hit→1→3→7→21일, 7일+ 2회 성공 시 졸업
+// ---------------------------------------------------------------------------
+describe('간격 반복 SRS', () => {
+  const t0 = new Date(2026, 6, 10, 12, 0).getTime();
+
+  test('recordMiss: 엔트리 생성/누적, 간격·wins 리셋, due=지금', () => {
+    setSystemTime(new Date(t0));
+    state.resetProfile();
+    state.recordMiss('I drink water.');
+    expect(state.profile.weakPairs['I drink water.']).toEqual({ misses: 1, due: t0, interval: 0, wins: 0 });
+    state.recordMiss('I drink water.');
+    expect(state.profile.weakPairs['I drink water.'].misses).toBe(2);
+  });
+
+  test('recordHit: 간격 1→3→7→21 성장, 7일+에서 2회 성공하면 졸업(삭제)', () => {
+    setSystemTime(new Date(t0));
+    state.resetProfile();
+    const en = 'She reads books.';
+    state.recordMiss(en);
+    const e = () => state.profile.weakPairs[en];
+    state.recordHit(en);
+    expect(e().interval).toBe(1);
+    expect(e().due).toBe(t0 + DAY);
+    state.recordHit(en);
+    expect(e().interval).toBe(3);
+    state.recordHit(en);
+    expect(e().interval).toBe(7);
+    expect(e().wins).toBe(0);
+    state.recordHit(en); // interval 7에서 성공 → wins 1, 21일로
+    expect(e().interval).toBe(21);
+    expect(e().wins).toBe(1);
+    state.recordHit(en); // 21일에서 성공 → wins 2 → 졸업
+    expect(e()).toBeUndefined();
+  });
+
+  test('성장 중 다시 틀리면 간격·wins가 0으로 돌아온다', () => {
+    setSystemTime(new Date(t0));
+    state.resetProfile();
+    const en = 'He works hard.';
+    state.recordMiss(en);
+    state.recordHit(en);
+    state.recordHit(en);
+    state.recordHit(en);
+    state.recordHit(en); // interval 21, wins 1
+    state.recordMiss(en);
+    expect(state.profile.weakPairs[en]).toEqual({ misses: 2, due: Date.now(), interval: 0, wins: 0 });
+  });
+
+  test('구버전 숫자 카운트는 SRS 엔트리로 마이그레이션된다', () => {
+    setSystemTime(new Date(t0));
+    state.resetProfile();
+    state.profile.weakPairs['Old entry.'] = 3;
+    state.applyTimeNow();
+    expect(state.profile.weakPairs['Old entry.']).toEqual({ misses: 3, due: t0, interval: 0, wins: 0 });
+  });
+
+  test('유닛 완료 시 문장들이 due=내일로 복습 큐에 유입된다', () => {
+    setSystemTime(new Date(t0));
+    state.resetProfile();
+    const unit = COURSE.units[0];
+    state.recordMiss(unit.pairs[0].en); // 이미 추적 중인 문장은 덮어쓰지 않음
+    state.profile.progress = { unit: 0, lesson: unit.lessonCount }; // 복습(트로피) 노드
+    state.advanceProgress(0, unit.lessonCount);
+    expect(state.profile.progress.unit).toBe(1);
+    expect(state.profile.weakPairs[unit.pairs[1].en]).toEqual({ misses: 0, due: t0 + DAY, interval: 1, wins: 0 });
+    expect(state.profile.weakPairs[unit.pairs[0].en].misses).toBe(1); // 유지
+    expect(Object.keys(state.profile.weakPairs).length).toBe(unit.pairs.length);
+  });
+
+  test('weakList: due 지난 것 먼저 → 가까운 순, weakDueCount는 due 지난 것만', () => {
+    setSystemTime(new Date(t0));
+    state.resetProfile();
+    state.profile.weakPairs = {
+      later: { misses: 1, due: t0 + 5 * DAY, interval: 7, wins: 0 },
+      overdueOld: { misses: 1, due: t0 - 3 * DAY, interval: 1, wins: 0 },
+      dueNow: { misses: 4, due: t0, interval: 0, wins: 0 },
+    };
+    expect(state.weakList()).toEqual(['overdueOld', 'dueNow', 'later']);
+    expect(state.weakDueCount()).toBe(2);
   });
 });
 
