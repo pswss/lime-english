@@ -1,7 +1,7 @@
 // 앱 부트스트랩 + 해시 라우터 + 상단바/내비게이션
 import { icons } from './icons.js';
 import { setVoice } from './audio.js';
-import { profile, onChange, boostActive, MAX_HEARTS, toggleMuted, applyTimeNow } from './state.js';
+import { profile, onChange, boostActive, MAX_HEARTS, toggleMuted, applyTimeNow, pendingToasts } from './state.js';
 import { renderPath, renderRail } from './views/path.js';
 import { renderCall } from './views/call.js';
 import { renderShop } from './views/shop.js';
@@ -84,10 +84,16 @@ export function render() {
   }
 }
 
+// state.js가 큐에 쌓아둔 알림(파손 백업·저장 실패) 표시
+function drainToasts() {
+  while (pendingToasts.length) toast(pendingToasts.shift());
+}
+
 if (profile.voiceName) setVoice(profile.voiceName);
 window.addEventListener('hashchange', render);
-onChange(() => renderTopbar());
+onChange(() => { renderTopbar(); drainToasts(); });
 render();
+drainToasts();
 
 // 탭을 열어둔 채로도 하트 회복·자정/주간 리셋 반영
 const timeTick = () => { if (applyTimeNow()) render(); };

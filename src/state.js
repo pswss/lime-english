@@ -7,6 +7,10 @@ export const MAX_HEARTS = 5;
 const HEART_REGEN_MS = 30 * 60 * 1000; // 30분마다 하트 1개
 const listeners = new Set();
 
+// app.js가 부트 후 표시할 알림 큐 (state → app 순환 임포트 회피)
+export const pendingToasts = [];
+let saveErrorShown = false;
+
 export function todayStr(d = new Date()) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -71,6 +75,14 @@ function load() {
   try {
     p = JSON.parse(localStorage.getItem(KEY)) || defaults();
   } catch {
+    // 파손된 원본을 백업 키로 보존한 뒤에만 초기화 (진행 전체 소실 방지)
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw != null) {
+        localStorage.setItem(`${KEY}.corrupt-${todayStr()}`, raw);
+        pendingToasts.push('프로필 데이터가 손상되어 초기화했어요. 원본은 백업으로 보관해 뒀어요.');
+      }
+    } catch {}
     p = defaults();
   }
   p = { ...defaults(), ...p };
@@ -126,7 +138,15 @@ export function applyTimeNow() {
 }
 
 export function save() {
-  localStorage.setItem(KEY, JSON.stringify(profile));
+  try {
+    localStorage.setItem(KEY, JSON.stringify(profile));
+  } catch {
+    // 용량 초과 등 — 조용히 죽는 대신 세션당 1회 알림
+    if (!saveErrorShown) {
+      saveErrorShown = true;
+      pendingToasts.push('진행 상황을 저장하지 못했어요. 저장 공간을 확인해 주세요.');
+    }
+  }
   for (const fn of listeners) fn(profile);
 }
 
