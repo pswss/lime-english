@@ -71,12 +71,17 @@ export function toast(msg) {
   el._t = setTimeout(() => el.classList.remove('show'), 2200);
 }
 
+let lastRoute = null; // 라우트 전환에만 등장 애니메이션 재생 (퀘스트 수령 등 재렌더 시 재생 방지)
 export function render() {
   const route = currentRoute();
   renderNav();
   renderTopbar();
   route.render($('#view'));
   renderRail($('#rail'), route.id);
+  if (route.id !== lastRoute) {
+    lastRoute = route.id;
+    $('#view').getAnimations().forEach((a) => { a.cancel(); a.play(); });
+  }
 }
 
 if (profile.voiceName) setVoice(profile.voiceName);
