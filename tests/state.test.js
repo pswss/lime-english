@@ -55,6 +55,38 @@ describe('프로필 안전망', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 프로필 가져오기 (스키마 검증)
+// ---------------------------------------------------------------------------
+describe('importProfile', () => {
+  test('잘못된 입력은 거부하고 기존 프로필을 유지', () => {
+    setSystemTime(new Date(2026, 6, 10, 12, 0));
+    state.resetProfile();
+    state.profile.xp = 42;
+    state.save();
+    for (const bad of [null, [], 'x', 7, {}, { xp: 'many' }, { xp: 1, gems: 1, hearts: 1, streak: 1, lessonsDone: 1, heartsUpdatedAt: 1 }]) {
+      expect(state.importProfile(bad).ok).toBe(false);
+    }
+    expect(state.profile.xp).toBe(42); // 미교체
+  });
+
+  test('내보낸 프로필 라운드트립 + 누락 필드는 defaults로 채움', () => {
+    setSystemTime(new Date(2026, 6, 10, 12, 0));
+    state.resetProfile();
+    state.profile.xp = 321;
+    state.profile.name = '테스트';
+    const exported = JSON.parse(JSON.stringify(state.profile));
+    delete exported.voiceName; // 구버전 내보내기 가정
+    state.resetProfile();
+    const r = state.importProfile(exported);
+    expect(r.ok).toBe(true);
+    expect(state.profile.xp).toBe(321);
+    expect(state.profile.name).toBe('테스트');
+    expect(state.profile.voiceName).toBe(null); // defaults 병합
+    expect(JSON.parse(store.get(KEY)).xp).toBe(321); // 저장까지 완료
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 스트릭: 자정 경계 증가/유지, 프리즈 소모, 부족 시 초기화
 // ---------------------------------------------------------------------------
 describe('스트릭 날짜 산술', () => {

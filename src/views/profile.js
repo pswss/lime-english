@@ -1,7 +1,7 @@
 // 프로필 + 업적
 import { LEAGUE_NAME, COURSE } from '../data.js';
 import { icons } from '../icons.js';
-import { profile, resetProfile, levelOf } from '../state.js';
+import { profile, resetProfile, levelOf, importProfile, todayStr } from '../state.js';
 import { render, toast } from '../app.js';
 
 function achievements() {
@@ -53,9 +53,44 @@ export function renderProfile(el) {
         </div>`).join('')}
     </div>
 
+    <h3 class="page-eyebrow" style="margin:32px 0 14px">Data — 프로필 데이터</h3>
+    <p style="color:var(--text-sub);font-size:14px;margin-bottom:12px">다른 기기로 옮기려면 JSON으로 내보낸 뒤, 그 기기에서 가져오세요.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn white" id="exportBtn">프로필 내보내기</button>
+      <button class="btn white" id="importBtn">프로필 가져오기</button>
+      <input type="file" id="importFile" accept="application/json,.json" hidden />
+    </div>
+
     <div style="margin-top:32px">
       <button class="btn red" id="resetBtn">진행 상황 초기화</button>
     </div>`;
+
+  el.querySelector('#exportBtn').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(profile, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `lime-profile-${todayStr()}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  const fileInput = el.querySelector('#importFile');
+  el.querySelector('#importBtn').addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', async () => {
+    const f = fileInput.files[0];
+    fileInput.value = '';
+    if (!f) return;
+    let data;
+    try {
+      data = JSON.parse(await f.text());
+    } catch {
+      return toast('JSON 파일을 읽을 수 없어요');
+    }
+    if (!window.confirm('현재 진행 상황을 가져온 프로필로 교체할까요?')) return;
+    const r = importProfile(data);
+    toast(r.ok ? '프로필을 가져왔어요' : r.reason);
+    if (r.ok) render();
+  });
 
   el.querySelector('#resetBtn').addEventListener('click', () => {
     if (window.confirm('정말 모든 진행 상황을 초기화할까요? 되돌릴 수 없어요.')) {

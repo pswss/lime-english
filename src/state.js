@@ -160,6 +160,21 @@ export function resetProfile() {
   save();
 }
 
+// ── 프로필 가져오기 (테일넷 다기기 이동용 — 내보내기는 뷰에서 JSON.stringify(profile)) ──
+// 교체 전 스키마 검증: 핵심 필드 타입이 맞아야만 통째로 교체한다.
+export function importProfile(data) {
+  const bad = { ok: false, reason: '올바른 LIME 프로필 파일이 아니에요' };
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return bad;
+  for (const f of ['xp', 'gems', 'hearts', 'streak', 'lessonsDone', 'heartsUpdatedAt']) {
+    if (typeof data[f] !== 'number' || !Number.isFinite(data[f])) return bad;
+  }
+  if (!data.progress || typeof data.progress.unit !== 'number' || typeof data.progress.lesson !== 'number') return bad;
+  if (typeof data.name !== 'string') return bad;
+  profile = applyTime({ ...defaults(), ...data });
+  save();
+  return { ok: true };
+}
+
 // ── 레벨 (XP 100당 1레벨) ──
 export function levelOf(xp) {
   return Math.floor(xp / 100) + 1;
