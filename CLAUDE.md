@@ -35,7 +35,7 @@ open http://localhost:8642
 
 ## 함정 (겪은 것들)
 
-1. **스테일 모듈 캐시**: 과거 `js/` 경로 시절 캐시가 새 모듈과 섞여 `Importing binding name not found` blank 발생 → `src/`로 이전 + server.py가 `Cache-Control: no-store` 전송. **모듈 export를 바꾸면 구캐시 기기에서 깨질 수 있음을 항상 의심** (비컨 로그 확인).
+1. **스테일 모듈 캐시**: 과거 `js/` 경로 시절 캐시가 새 모듈과 섞여 `Importing binding name not found` blank 발생 → `src/`로 이전. server.py는 GET에 `Cache-Control: max-age=60`(+Last-Modified 재검증) — 배포 직후 60초 창에서만 버전 혼합 가능. **모듈 export를 바꾸면 구캐시 기기에서 깨질 수 있음을 항상 의심** (비컨 로그 확인).
 2. **python http.server 기본값**: backlog 5 + HTTP/1.0은 모듈 13개 동시 fetch에서 connection reset → server.py는 HTTP/1.1 keep-alive + backlog 64. SimpleHTTPServer로 되돌리지 말 것.
 3. **Safari**: SpeechRecognition 미지원 → 말하기 문제는 세션 생성에서 자동 제외(`srAvailable` 게이트), 통화는 칩/입력 폴백. `speechSynthesis` 보이스도 빈약 — 로비 안내문 유지.
 4. **ES 모듈 = strict mode**: 브라우저 전용 API는 `ttsAvailable()` 같은 typeof 가드 뒤에서만. JSC CLI(`/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc --module-file=src/app.js`)로 사파리 엔진 파싱 검증 가능 (window 에러 도달 = 파싱 전체 통과).

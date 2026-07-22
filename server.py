@@ -1,5 +1,6 @@
 # 라임(LIME) 정적 서버
-# - Cache-Control: no-store → 모듈 스테일 캐시(버전 혼합 임포트 깨짐) 방지
+# - 정적 GET: Cache-Control max-age=60 (+SimpleHTTPRequestHandler의 Last-Modified 재검증)
+#   → 매 로드 전체 재전송 방지. 60초 내 배포 시 모듈 버전 혼합 가능성은 감수 (짧은 창)
 # - HTTP/1.1 keep-alive + 넉넉한 backlog → 모듈 13개 동시 fetch에서 connection reset 방지
 # - POST /__err → 클라이언트 에러 비컨 수집 (/tmp/duolingo-client-errors.log)
 # - POST /call/reply → HTTP Basic 인증 후 영상 통화 LLM 대화
@@ -9,6 +10,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -119,7 +121,10 @@ class Handler(SimpleHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
 
     def end_headers(self):
-        self.send_header('Cache-Control', 'no-store, must-revalidate')
+        if self.command == 'GET':
+            self.send_header('Cache-Control', 'max-age=60')
+        else:
+            self.send_header('Cache-Control', 'no-store, must-revalidate')
         super().end_headers()
 
     def _empty(self, code):
@@ -163,7 +168,9 @@ class Handler(SimpleHTTPRequestHandler):
             try:
                 self._json(200, call_reply(json.loads(body)))
             except Exception as e:
-                self._json(502, {'error': str(e)[:300]})
+                # 상세(로컬 경로 등)는 서버 로그에만 — 응답은 일반 메시지
+                print(f'/call/reply error: {e!r}', file=sys.stderr, flush=True)
+                self._json(502, {'error': 'call engine failed'})
         else:
             self._empty(404)
 
