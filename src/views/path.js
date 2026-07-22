@@ -217,7 +217,7 @@ export function renderRail(el, routeId) {
             <span>${q.title}</span>
             <span class="q-reward">${icons.gem()}${q.reward}</span>
           </div>
-          <div class="qbar"><div style="width:${(q.current / q.target) * 100}%"></div></div>
+          <div class="qbar" role="progressbar" aria-label="${q.title}" aria-valuenow="${q.current}" aria-valuemin="0" aria-valuemax="${q.target}"><div style="width:${(q.current / q.target) * 100}%"></div></div>
           ${q.complete
             ? `<button class="q-claim ${q.claimed ? 'claimed' : ''}" data-quest="${q.id}">
                  ${q.claimed ? '받기 완료 ✓' : '보상 받기'}

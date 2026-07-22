@@ -635,6 +635,9 @@ body::after {
   color: var(--text-faint); pointer-events: none; animation: chip-pop 0.2s;
 }
 .mchip.wrong { animation: shake 0.4s; border-color: var(--crimson); color: var(--crimson); }
+/* 색상 외 단서 (색각 이상·reduced-motion 대비) */
+.mchip.matched::after { content: ' ✓'; }
+.mchip.wrong::after { content: ' ✕'; }
 @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 50% { transform: translateX(6px); } 75% { transform: translateX(-4px); } }
 
 /* 빈칸 채우기 */

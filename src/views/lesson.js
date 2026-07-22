@@ -121,7 +121,7 @@ function headerHtml() {
   return `
     <div class="lesson-head">
       <button class="quit" id="quit" aria-label="나가기">${icons.close()}</button>
-      <div class="pbar"><div style="width:${pct}%"></div></div>
+      <div class="pbar" role="progressbar" aria-label="레슨 진행률" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div style="width:${pct}%"></div></div>
       ${right}
     </div>`;
 }
