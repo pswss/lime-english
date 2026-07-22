@@ -347,7 +347,9 @@ export function claimQuest(id) {
 // ── 리그 (결정적 봇 시뮬레이션) ──
 export function leagueStandings() {
   const rng = mulberry32(seedFrom('league:' + profile.weekStart));
-  const hoursElapsed = Math.max(0, (Date.now() - new Date(profile.weekStart).getTime()) / 3600000);
+  // 'YYYY-MM-DD' 문자열 파싱은 UTC 자정 → KST에서 봇이 ~9시간 선행. 로컬 자정으로 파싱한다.
+  const [wy, wm, wd] = profile.weekStart.split('-').map(Number);
+  const hoursElapsed = Math.max(0, (Date.now() - new Date(wy, wm - 1, wd).getTime()) / 3600000);
   const bots = LEAGUE_BOTS.map((b) => {
     const pace = 2 + rng() * 12; // 시간당 XP 페이스 (봇마다 고정)
     const jitter = rng() * 30;

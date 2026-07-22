@@ -1,6 +1,9 @@
 // state.js 단위 테스트: 프로필 안전망 + 날짜 산술 (스트릭/프리즈/주간/하트/퀘스트/상점)
 // state.js는 모듈 로드 시 localStorage에서 load()를 실행하므로,
 // 셤(shim)을 먼저 깔고 파손 데이터를 심은 뒤 동적 import 한다.
+// bun test는 기본 TZ=UTC — 실사용 환경(KST)의 타임존 버그가 가려지므로 고정한다.
+process.env.TZ = 'Asia/Seoul';
+
 import { describe, test, expect, setSystemTime, afterAll } from 'bun:test';
 
 const store = new Map();
@@ -239,6 +242,26 @@ describe('일일 퀘스트', () => {
     expect(state.claimQuest('xp30')).toBe(true);
     expect(state.profile.gems).toBe(gems + 50);
     expect(state.claimQuest('xp30')).toBe(false); // 중복 수령 금지
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 리그: weekStart는 로컬 자정 기준이어야 함 (UTC 파싱 시 KST에서 봇이 ~9시간 선행)
+// ---------------------------------------------------------------------------
+describe('리그 weekStart 타임존', () => {
+  test('월요일 00:10 → 09:00 (로컬) 사이에 봇 XP가 실제로 증가한다', () => {
+    setSystemTime(new Date(2026, 6, 20, 0, 10)); // 월요일 00:10 로컬
+    state.resetProfile();
+    expect(state.profile.weekStart).toBe('2026-07-20');
+    const early = Object.fromEntries(
+      state.leagueStandings().filter((s) => s.bot).map((s) => [s.name, s.xp])
+    );
+    setSystemTime(new Date(2026, 6, 20, 9, 0)); // 월요일 09:00 로컬
+    const late = state.leagueStandings().filter((s) => s.bot);
+    // UTC 자정 파싱 버그면 두 시점 모두 hoursElapsed=0 → 증가량 0
+    for (const s of late) {
+      expect(s.xp - early[s.name]).toBeGreaterThanOrEqual(10); // 최저 페이스 2xp/h × 약 9h
+    }
   });
 });
 
