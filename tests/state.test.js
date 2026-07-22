@@ -185,6 +185,35 @@ describe('하트 재생', () => {
 
 });
 
+describe('하트 재생 — 나머지 보존', () => {
+  test('나머지 시간 보존: 59분 경과로 1개 재생돼도 남은 29분은 다음 하트로 이어짐', () => {
+    const t0 = new Date(2026, 6, 10, 12, 0).getTime();
+    setSystemTime(new Date(t0));
+    state.resetProfile();
+    state.profile.hearts = 3;
+    state.profile.heartsUpdatedAt = t0;
+    setSystemTime(new Date(t0 + 59 * MIN));
+    state.applyTimeNow();
+    expect(state.profile.hearts).toBe(4);
+    expect(state.profile.heartsUpdatedAt).toBe(t0 + 30 * MIN); // = now 로 리셋하면 29분 증발
+    setSystemTime(new Date(t0 + 61 * MIN)); // 총 61분 = 하트 2개분
+    state.applyTimeNow();
+    expect(state.profile.hearts).toBe(5);
+  });
+
+  test('MAX 도달 시에는 타임스탬프를 now로 리셋 (미래 시각 방지)', () => {
+    const t0 = new Date(2026, 6, 10, 12, 0).getTime();
+    setSystemTime(new Date(t0));
+    state.resetProfile();
+    state.profile.hearts = 4;
+    state.profile.heartsUpdatedAt = t0;
+    setSystemTime(new Date(t0 + 100 * MIN)); // 3개분 경과, 1개만 필요
+    state.applyTimeNow();
+    expect(state.profile.hearts).toBe(5);
+    expect(state.profile.heartsUpdatedAt).toBe(t0 + 100 * MIN);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // 일일 퀘스트 롤오버 + 수령
 // ---------------------------------------------------------------------------

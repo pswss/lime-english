@@ -97,7 +97,10 @@ function applyTime(p) {
     const gained = Math.floor((Date.now() - p.heartsUpdatedAt) / HEART_REGEN_MS);
     if (gained > 0) {
       p.hearts = Math.min(MAX_HEARTS, p.hearts + gained);
-      p.heartsUpdatedAt = Date.now();
+      // = now 로 리셋하면 다음 하트로 가던 나머지 시간(최대 29분)이 증발한다.
+      // 소모된 시간만큼만 전진시키고, MAX 도달 시에는 미래 시각 방지를 위해 now.
+      p.heartsUpdatedAt =
+        p.hearts >= MAX_HEARTS ? Date.now() : p.heartsUpdatedAt + gained * HEART_REGEN_MS;
     }
   } else {
     p.heartsUpdatedAt = Date.now();
